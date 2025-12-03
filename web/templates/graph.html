@@ -1,0 +1,106 @@
+<!-- templates/graph.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="text-2xl mb-4">知识图谱</h1>
+
+<div class="mb-4">
+    <input id="keywordInput" list="keywords" class="border p-2 w-64" placeholder="输入关键词..." />
+    <button onclick="fetchTriples()" class="bg-blue-500 text-white px-4 py-2"> 获取相关三元组 </button>
+    <datalist id="keywords">
+        {% for triple in all_triples %}
+            <option value="{{ triple[0] }}"></option>
+            <option value="{{ triple[2] }}"></option>
+        {% endfor %}
+    </datalist>
+</div>
+
+<div id="graph" style="height: 600px; border: 1px solid #ccc;"></div>
+
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+let network;
+let nodesSet = new Set();
+let edgesSet = new Set();
+
+function getNodeType(label) {
+    if (["Elon Musk"].includes(label)) return 'person';
+    if (["OpenAI", "Tesla", "SpaceX"].includes(label)) return 'company';
+    return 'tech';
+}
+
+const typeColorMap = {
+    person: '#ff6b6b',
+    company: '#6bcbff',
+    tech: '#ffd93d'
+};
+
+function renderGraph(triples) {
+    nodesSet.clear();
+    edgesSet.clear();
+
+    const edges = [];
+    triples.forEach(([source, relation, target]) => {
+        nodesSet.add(source);
+        nodesSet.add(target);
+        edgesSet.add(`${source}|${relation}|${target}`);
+        edges.push({from: source, to: target, label: relation, arrows: 'to'});
+    });
+
+    const nodes = Array.from(nodesSet).map(label => {
+        const type = getNodeType(label);
+        return {
+            id: label,
+            label,
+            color: typeColorMap[type] || '#97C2FC'
+        };
+    });
+
+    const data = { nodes, edges };
+    const options = {
+        nodes: { shape: 'box', font: { size: 16 }, shadow: true },
+        edges: { arrows: 'to', font: { align: 'middle' }, smooth: true },
+        interaction: { hover: true },
+        physics: { enabled: true }
+    };
+
+    const container = document.getElementById('graph');
+    if (network) network.destroy();
+    network = new vis.Network(container, data, options);
+
+    network.on("click", function (params) {
+        if (params.nodes.length > 0) {
+            const clickedNode = params.nodes[0];
+            fetch('/get-triples', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword: clickedNode })
+            })
+            .then(res => res.json())
+            .then(data => renderGraph(data));
+        }
+    });
+}
+
+function fetchTriples() {
+    const keyword = document.getElementById('keywordInput').value;
+    fetch('/get-triples', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+    })
+    .then(res => res.json())
+    .then(data => renderGraph(data));
+}
+
+// load default full graph on page load
+window.onload = () => {
+    fetch('/get-triples', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: '' })
+    })
+    .then(res => res.json())
+    .then(data => renderGraph(data));
+};
+</script>
+{% endblock %}

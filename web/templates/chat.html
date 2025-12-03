@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="text-2xl mb-4">智能问答</h1>
+
+<!-- 聊天内容区域 -->
+<div id="chatBox" class="h-[70vh] overflow-y-auto border p-4 bg-gray-50 rounded shadow mb-4 flex flex-col space-y-4">
+    <!-- 聊天消息与图谱插入此处 -->
+</div>
+
+<!-- 底部输入框 -->
+<div class="sticky bottom-0 bg-white border-t p-4 flex items-center">
+    <input id="questionInput" class="border p-2 flex-1 mr-2 rounded" placeholder="请输入问题..." />
+    <button onclick="submitQuestion()" class="bg-blue-500 text-white px-4 py-2 rounded">发送</button>
+</div>
+
+<!-- 引入样式与脚本 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let graphIndex = 0;
+
+    // 设置 marked 配合 highlight.js
+    marked.setOptions({
+        highlight: function(code, lang) {
+            if (hljs.getLanguage(lang)) {
+                return hljs.highlight(code, { language: lang }).value;
+            }
+            return hljs.highlightAuto(code).value;
+        }
+    });
+
+    // 回车提交问题
+    document.getElementById('questionInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitQuestion();
+        }
+    });
+
+    // 滚动到底
+    function scrollToBottom() {
+        const chatBox = document.getElementById('chatBox');
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 添加聊天消息
+    function appendMessage(role, text) {
+        const chatBox = document.getElementById('chatBox');
+        const msg = document.createElement('div');
+        msg.className = 'p-3 rounded max-w-xl prose prose-sm break-words ' +
+                        (role === 'user' ? 'bg-blue-100 self-end' : 'bg-green-100 self-start');
+
+        msg.innerHTML = marked.parse(text);
+
+        // 等待插入后再高亮代码
+        setTimeout(() => {
+            msg.querySelectorAll('pre code').forEach(block => {
+                hljs.highlightElement(block);
+            });
+        }, 0);
+
+        chatBox.appendChild(msg);
+        scrollToBottom();
+    }
+
+    // 渲染图谱
+    function appendGraph(triples) {
+        if (!triples || !triples.length) return;
+
+        const container = document.createElement('div');
+        container.className = 'mt-2';
+        container.innerHTML = `
+            <div class="text-sm text-gray-700 mb-1 font-semibold">相关知识图谱</div>
+            <div id="graph-${graphIndex}" style="height: 300px; border: 1px solid #ddd;"></div>
+        `;
+        document.getElementById('chatBox').appendChild(container);
+
+        const nodes = new Set();
+        const edges = [];
+        triples.forEach(([s, r, t]) => {
+            nodes.add(s);
+            nodes.add(t);
+            edges.push({ from: s, to: t, label: r, arrows: 'to' });
+        });
+
+        const data = {
+            nodes: Array.from(nodes).map(label => ({ id: label, label })),
+            edges
+        };
+
+        const options = {
+            nodes: { shape: 'box', font: { size: 14 }, shadow: true },
+            edges: { font: { align: 'middle' }, arrows: 'to' },
+            physics: false
+        };
+
+        new vis.Network(document.getElementById(`graph-${graphIndex}`), data, options);
+        graphIndex++;
+        scrollToBottom();
+    }
+
+    // 提交请求
+    window.submitQuestion = function() {
+        const input = document.getElementById('questionInput');
+        const question = input.value.trim();
+        if (!question) return;
+
+        appendMessage('user', question);
+        input.value = '';
+
+        fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+        })
+        .then(res => res.json())
+        .then(data => {
+            appendMessage('bot', data.answer || '（无回答）');
+            appendGraph(data.triples || []);
+        });
+    };
+});
+</script>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="text-2xl mb-4">向量库</h1>
+<table class="table-auto w-full bg-white rounded shadow">
+    <thead class="bg-gray-200">
+        <tr>
+            <th class="px-4 py-2 text-left">向量</th>
+            <th class="px-4 py-2 text-left">文本</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for item in vectors %}
+        <tr class="border-t">
+            <td class="px-4 py-2 text-sm font-mono text-gray-700">
+                [{{ item.vector | join(', ') }}]
+            </td>
+            <td class="px-4 py-2 text-gray-800">
+                {{ item.text }}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

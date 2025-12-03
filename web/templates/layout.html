@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>我的展示项目</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex">
+    <aside class="w-64 bg-gray-800 text-white h-screen p-4">
+        <h2 class="text-xl font-bold mb-4">功能导航</h2>
+        <ul class="space-y-2">
+            <li><a href="/" class="hover:underline">聊天界面</a></li>
+            <li><a href="/vector-db" class="hover:underline">向量库</a></li>
+            <li><a href="/graph" class="hover:underline">知识图谱</a></li>
+        </ul>
+    </aside>
+    <main class="flex-1 p-6 bg-gray-100">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
